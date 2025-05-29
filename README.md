@@ -1,6 +1,6 @@
 <<<<<<< HEAD
-# Project-manager
-This is used for managing various projects of multiple users with full authorization.
+# ProjectHub
+ProjectHub is a web-based project management platform built with JavaScript, Firebase, and modern frontend tools. It allows teams and developers to manage their projects with features inspired by GitHub – including repositories, issues, discussions, collaborators, and activity timelines.
 =======
 # React + Vite
 
