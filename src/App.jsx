@@ -19,7 +19,7 @@ function App() {
 
   useEffect(() => {
     const listener = auth.onAuthStateChanged((user) => {
-      if (!user){
+      if (!user) {
         setIsDataLoaded(true);
         setIsAuthenticated(false);
         return
@@ -32,25 +32,25 @@ function App() {
 
   return (
     <div className="app">
-      {isDataLoaded ? 
-      <BrowserRouter>
-      <Routes>
-        {!isAuthenticated && (
-          <>
-            <Route path="/login" element={<Auth />} />
-            <Route path="/signup" element={<Auth signup />} />
-          </>
-        )}
-        <Route path="/" element={<Home auth={isAuthenticated}/>} />
-        <Route path="/*" element={<Navigate to="/"/>}/>
-        <Route path="/account" element={<Account userDetails={userDetails} auth ={isAuthenticated}/>} />
-      </Routes>
-    </BrowserRouter>
-     : (
-    <div className="spinner">
-         <Spinner/>
-    </div>
-     )
+      {isDataLoaded ?
+        <BrowserRouter>
+          <Routes>
+            {!isAuthenticated && (
+              <>
+                <Route path="/login" element={<Auth />} />
+                <Route path="/signup" element={<Auth signup />} />
+              </>
+            )}
+            <Route path="/" element={<Home auth={isAuthenticated} userDetails={userDetails} />} />
+            <Route path="/*" element={<Navigate to="/" />} />
+            <Route path="/account" element={<Account userDetails={userDetails} auth={isAuthenticated} />} />
+          </Routes>
+        </BrowserRouter>
+        : (
+          <div className="spinner">
+            <Spinner />
+          </div>
+        )
       }
     </div>
   );

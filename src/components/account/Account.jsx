@@ -1,48 +1,45 @@
 import React, { useEffect, useRef, useState } from "react";
 import styles from "./Account.module.css";
-import { Camera, Edit2, GitHub, LogOut, Paperclip, Trash } from "react-feather";
+import { Camera, Edit2, Paperclip, GitHub, Linkedin, Trash2, Plus, Save } from "react-feather";
 import image from "../../assets/profile.jpg";
 import InputControl from "../InputControl/InputControl";
-import { Link, Navigate } from "react-router-dom";
-import { signOut } from "firebase/auth";
+import { Navigate } from "react-router-dom";
+import Spinner from "../spinner/Spinner";
 import {
-  auth,
   updateUserDatabase,
   uploadImage,
   getAllProjectsForUser,
   deleteProject,
 } from "../../firebase";
 import ProjectForm from "./ProjectForm/ProjectForm";
+import SignOut from "../Auth/Logout/Logout";
 
-export default function Account(props) {
-  const userDetails = props.userDetails;
-  const isAuthenticated = props.auth;
+export default function Account({ userDetails, auth: isAuthenticated }) {
   const imagePicker = useRef();
   const [progress, setProgress] = useState(0);
   const [profileImageUrl, setProfileImageUrl] = useState("");
-  const [profileImageUploadStarted, setProfileImageUploadStarted] =
-    useState(false);
+  const [profileImageUploadStarted, setProfileImageUploadStarted] = useState(false);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [projects, setProjects] = useState([]);
+  const [saveButtonDisabled, setSaveButtonDisabled] = useState(false);
+  const [isEditProjectModal, setIsEditProjectModal] = useState(false);
+  const [editProject, setEditProject] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSaveDetailsButton, setShowSaveDetailsButton] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const [userprofileValues, setUserProfileValues] = useState({
-    name: userDetails?.name,
+    name: userDetails?.name || "",
     designation: userDetails?.designation || "",
     github: userDetails?.github || "",
     linkedin: userDetails?.linkedin || "",
   });
-  const [showSaveDetailsButton, setShowSaveDetailsButton] = useState(false);
-  const [saveButtonDisabled, setSaveButtonDisabled] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [isEditProjectModal, setIsEditProjectModal] = useState(false);
-  const [editProject, setEditProject] = useState({});
-  const handleLogOut = async () => {
-    await signOut(auth);
-  };
+
   const handleCameraClick = () => {
     imagePicker.current.click();
   };
+
   const handleInputChange = (event, property) => {
     setShowSaveDetailsButton(true);
     setUserProfileValues((prev) => ({
@@ -50,7 +47,9 @@ export default function Account(props) {
       [property]: event.target.value,
     }));
   };
+
   const saveDetailsToFirestore = async () => {
+    console.log({ userprofileValues, profileImageUrl, uid: userDetails })
     if (!userprofileValues.name) {
       setErrorMessage("Name required");
       return;
@@ -64,36 +63,65 @@ export default function Account(props) {
     setSaveButtonDisabled(false);
     setShowSaveDetailsButton(false);
   };
+
   const handleImageChange = (event) => {
     const file = event.target.files[0];
     if (!file) return;
+
+    // Validate file type and size
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+
+    if (!validTypes.includes(file.type)) {
+      setErrorMessage('Please upload a valid image (JPEG, PNG, or WebP)');
+      return;
+    }
+
+    if (file.size > maxSize) {
+      setErrorMessage('Image size should be less than 5MB');
+      return;
+    }
+
     setProfileImageUploadStarted(true);
+    setErrorMessage('');
+
     uploadImage(
       file,
       (progress) => setProgress(progress),
-
       (url) => {
         setProfileImageUrl(url);
         setProfileImageUploadStarted(false);
         setProgress(0);
+        setShowSaveDetailsButton(true);
       },
       (err) => {
-        console.error("error is", err);
+        console.error("Error uploading image:", err);
         setProfileImageUploadStarted(false);
+        setErrorMessage("Failed to upload image. Please try again.");
       }
     );
   };
 
   const fetchAllProjects = async () => {
-    const result = await getAllProjectsForUser(userDetails?.uid);
-    if (!result) {
+    try {
+      const result = await getAllProjectsForUser(userDetails?.uid);
+      if (!result) {
+        setProjectsLoaded(true);
+        return;
+      }
+
+      const tempProjects = result.docs.map(doc => ({
+        pid: doc.id,
+        ...doc.data()
+      }));
+
+      setProjects(tempProjects);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      setErrorMessage("Failed to load projects. Please refresh the page.");
+    } finally {
       setProjectsLoaded(true);
-      return;
     }
-    setProjectsLoaded(true);
-    let tempProjects = [];
-    result.forEach((doc) => tempProjects.push({ ...doc.data(), pid: doc.id }));
-    setProjects(tempProjects);
   };
 
   const handleEditClick = (project) => {
@@ -103,161 +131,254 @@ export default function Account(props) {
   };
 
   const handleDelete = async (pid) => {
-    await deleteProject(pid);
-    fetchAllProjects();
+    if (window.confirm("Are you sure you want to delete this project?")) {
+      try {
+        await deleteProject(pid);
+        fetchAllProjects();
+      } catch (error) {
+        console.error("Error deleting project:", error);
+        setErrorMessage("Failed to delete project. Please try again.");
+      }
+    }
+  };
+
+  const handleProjectFormClose = () => {
+    setShowProjectForm(false);
+    setIsEditProjectModal(false);
+    setEditProject({});
   };
 
   useEffect(() => {
-    fetchAllProjects();
-  }, []);
+    if (userDetails?.uid) {
+      fetchAllProjects();
+    }
+  }, [userDetails?.uid]);
 
-  return isAuthenticated ? (
+  if (!isAuthenticated) {
+    return <Navigate to="/" />;
+  }
+
+  return (
     <div className={styles.container}>
       {showProjectForm && (
         <ProjectForm
-          onClose={() => setShowProjectForm(false)}
+          onClose={handleProjectFormClose}
           uid={userDetails?.uid}
-          onSubmission={fetchAllProjects()}
+          onSubmission={fetchAllProjects}
           isEdit={isEditProjectModal}
           default={editProject}
         />
       )}
-      <div className={styles.header}>
-        <p className={styles.heading}>
-          Welcome <span>{userprofileValues?.name}</span>
-        </p>
 
-        <div className={styles.logout} onClick={() => handleLogOut()}>
-          <LogOut /> LogOut
+      <header className={styles.header}>
+        <div>
+          <h1 className={styles.heading}>
+            Welcome, <span>{userprofileValues?.name || 'User'}</span>
+          </h1>
+          <p className={styles.subheading}>Manage your profile and projects</p>
         </div>
-      </div>
+        <SignOut />
+      </header>
+
       <input
         type="file"
         ref={imagePicker}
+        accept="image/jpeg, image/png, image/webp"
         style={{ display: "none" }}
-        onChange={(e) => handleImageChange(e)}
+        onChange={handleImageChange}
       />
-      <div className={styles.section}>
-        <div className={styles.title}>Your Profile</div>
-        <div className={styles.profile}>
-          <div className={styles.left}>
-            <div className={styles.image}>
-              <img
-                src={
-                  profileImageUrl
-                    ? profileImageUrl
-                    : userDetails?.profileImageUrl
-                }
-                alt="Profile Image"
-              />
-              <div
-                className={styles.camera}
-                onClick={() => handleCameraClick()}
-              >
-                <Camera />
-              </div>
-            </div>
-            {profileImageUploadStarted ? (
-              <p className={styles.progress}>
-                {progress === 100
-                  ? "Getting image url ... "
-                  : `${progress.toFixed(2)}% uploaded`}
-              </p>
-            ) : (
-              ""
-            )}
+
+      <main className={styles.mainContent}>
+        <section className={styles.profileSection}>
+          <div className={styles.sectionHeader}>
+            <h2>Profile Information</h2>
+            <p>Update your personal details and links</p>
           </div>
-          <div className={styles.right}>
-            <div className={styles.row}>
-              <InputControl
-                label="Name"
-                value={userprofileValues.name}
-                onChange={(e) => handleInputChange(e, "name")}
-              />
-              <InputControl
-                label="Title"
-                placeholder="eg. Full Stack Developer"
-                value={userprofileValues.designation}
-                onChange={(e) => handleInputChange(e, "designation")}
-              />
-            </div>
-            <div className={styles.row}>
-              <InputControl
-                label="Github"
-                placeholder="Enter your Github Link"
-                value={userprofileValues.github}
-                onChange={(e) => handleInputChange(e, "github")}
-              />
-              <InputControl
-                label="LinkedIn"
-                placeholder="Enter your LinkedIn Link"
-                value={userprofileValues.linkedin}
-                onChange={(e) => handleInputChange(e, "linkedin")}
-              />
-            </div>
-            <div className={styles.footer}>
-              <p className={styles.error}>{errorMessage}</p>
-              {showSaveDetailsButton && (
-                <div
-                  className="button"
-                  disabled={saveButtonDisabled}
-                  onClick={() => saveDetailsToFirestore()}
+
+          <div className={styles.profileContent}>
+            <div className={styles.profileImageContainer}>
+              <div className={styles.profileImageWrapper}>
+                <img
+                  src={
+                    profileImageUrl ||
+                    userDetails?.profileImageUrl ||
+                    image
+                  }
+                  alt="Profile"
+                  className={styles.profileImage}
+                />
+                <button
+                  onClick={handleCameraClick}
+                  className={styles.cameraButton}
+                  disabled={profileImageUploadStarted}
+                  aria-label="Update profile picture"
                 >
-                  Save Details
+                  {profileImageUploadStarted ? (
+                    <Spinner className={styles.spinner} />
+                  ) : (
+                    <Camera size={18} />
+                  )}
+                </button>
+              </div>
+              {profileImageUploadStarted && (
+                <div className={styles.uploadProgress}>
+                  <div
+                    className={styles.progressBar}
+                    style={{ width: `${progress}%` }}
+                  />
+                  <span className={styles.progressText}>
+                    {progress === 100 ? 'Processing...' : `${Math.round(progress)}%`}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className={styles.profileDetails}>
+              <div className={styles.formGrid}>
+                <InputControl
+                  label="Full Name"
+                  value={userprofileValues.name}
+                  onChange={(e) => handleInputChange(e, "name")}
+                  placeholder="John Doe"
+                />
+                <InputControl
+                  label="Job Title"
+                  placeholder="e.g. Senior Developer"
+                  value={userprofileValues.designation}
+                  onChange={(e) => handleInputChange(e, "designation")}
+                />
+                <InputControl
+                  label="GitHub Profile"
+                  placeholder="https://github.com/username"
+                  value={userprofileValues.github}
+                  onChange={(e) => handleInputChange(e, "github")}
+                  icon={<GitHub size={16} />}
+                />
+                <InputControl
+                  label="LinkedIn Profile"
+                  placeholder="https://linkedin.com/in/username"
+                  value={userprofileValues.linkedin}
+                  onChange={(e) => handleInputChange(e, "linkedin")}
+                  icon={<Linkedin size={16} />}
+                />
+              </div>
+
+              {errorMessage && (
+                <div className={styles.errorMessage}>
+                  {errorMessage}
+                </div>
+              )}
+
+              {showSaveDetailsButton && (
+                <div className={styles.formActions}>
+                  <button
+                    onClick={saveDetailsToFirestore}
+                    className={styles.saveButton}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? (
+                      <>
+                        <Spinner className={styles.buttonSpinner} />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save size={16} />
+                        Save Changes
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
             </div>
           </div>
-        </div>
-      </div>
-      <hr />
-      <div className={styles.section}>
-        <div className={styles.projectsHeader}>
-          <div className={styles.title}>Your Projects</div>
-          <button
-            className="button"
-            onClick={() => {
-              setShowProjectForm(true);
-              setIsEditProjectModal(false);
-              setEditProject({});
-            }}
-          >
-            Add Project
-          </button>
-        </div>
+        </section>
 
-        <div className={styles.projects}>
-          {projectsLoaded ? (
-            projects.length > 0 ? (
-              projects.map((item, index) => (
-                <div className={styles.project} key={index}>
-                  <p className={styles.title}>{item.title}</p>
-                  <div className={styles.links}>
-                    <Edit2 onClick={() => handleEditClick(item)} />
-                    <Trash onClick={() => handleDelete(item.pid)} />
-                    <Link target="_blank" to={`//${item.github}`}>
-                      <GitHub />
-                    </Link>
-                    {item.link ? (
-                      <Link target="_blank" to={`//${item.link}`}>
-                        <Paperclip />
-                      </Link>
-                    ) : (
-                      ""
+        <section className={styles.projectsSection}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2>Your Projects</h2>
+              <p>Manage your portfolio projects</p>
+            </div>
+            <button
+              onClick={() => setShowProjectForm(true)}
+              className={styles.addProjectButton}
+            >
+              <Plus size={18} />
+              <span>Add Project</span>
+            </button>
+          </div>
+
+          {!projectsLoaded ? (
+            <div className={styles.loadingState}>
+              <Spinner className={styles.spinner} />
+              <p>Loading your projects...</p>
+            </div>
+          ) : projects.length === 0 ? (
+            <div className={styles.emptyState}>
+              <Paperclip size={48} className={styles.emptyIcon} />
+              <h3>No Projects Yet</h3>
+              <p>Get started by adding your first project to showcase your work</p>
+              <button
+                onClick={() => setShowProjectForm(true)}
+                className={styles.ctaButton}
+              >
+                <Plus size={18} />
+                <span>Create Project</span>
+              </button>
+            </div>
+          ) : (
+            <div className={styles.projectsGrid}>
+              {projects.map((project) => (
+                <div key={project.pid} className={styles.projectCard}>
+                  <div className={styles.projectInfo}>
+                    <h3 className={styles.projectTitle}>
+                      {project.title || 'Untitled Project'}
+                    </h3>
+                    {project.overview && (
+                      <p className={styles.projectOverview}>
+                        {project.overview.length > 100
+                          ? `${project.overview.substring(0, 100)}...`
+                          : project.overview}
+                      </p>
+                    )}
+                    {project.technologies?.length > 0 && (
+                      <div className={styles.techTags}>
+                        {project.technologies.slice(0, 3).map((tech, i) => (
+                          <span key={i} className={styles.techTag}>
+                            {tech}
+                          </span>
+                        ))}
+                        {project.technologies.length > 3 && (
+                          <span className={styles.moreTag}>
+                            +{project.technologies.length - 3} more
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
+                  <div className={styles.projectActions}>
+                    <button
+                      onClick={() => handleEditClick(project)}
+                      className={styles.actionButton}
+                      aria-label="Edit project"
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(project.pid)}
+                      className={`${styles.actionButton} ${styles.deleteButton}`}
+                      aria-label="Delete project"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
-              ))
-            ) : (
-              <h3>No Projects Found</h3>
-            )
-          ) : (
-            ""
+              ))}
+            </div>
           )}
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
-  ) : (
-    <Navigate to="/" />
   );
 }

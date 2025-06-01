@@ -34,6 +34,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const updateUserDatabase = async (user, uid) => {
+  console.log("user", user, uid)
   if (typeof user !== "object") return;
   const docRef = doc(db, "users", uid);
   await setDoc(docRef, { ...user, uid });

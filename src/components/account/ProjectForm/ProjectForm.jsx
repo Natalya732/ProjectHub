@@ -4,20 +4,22 @@ import styles from "./ProjectForm.module.css";
 import image from "../../../assets/designer.jpg";
 import InputControl from "../../InputControl/InputControl";
 import { addProjectInDatabase, updateProjectInDatabase, uploadImage } from "../../../firebase";
-import {  X } from "react-feather";
+import { X } from "react-feather";
 
 function ProjectForm(props) {
   const fileInputRef = useRef();
   const isEdit = props.isEdit ? true : false;
   const defaults = props.default;
   const [values, setValues] = useState({
-    thumbnail: defaults.thumbnail || "",
-    title: defaults.title || "",
-    overview: defaults.overview || "",
-    github: defaults.github || "",
-    link: defaults.link || "",
-    points: defaults.points || ["", ""],
+    thumbnail: defaults?.thumbnail || "",
+    title: defaults?.title || "",
+    overview: defaults?.overview || "",
+    github: defaults?.github || "",
+    link: defaults?.link || "",
+    points: defaults?.points || ["", ""],
   });
+
+
   const [errorMessage, setErrorMessage] = useState("");
   const [imageUploadStarted, setImageUploadStarted] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -94,8 +96,8 @@ function ProjectForm(props) {
   const handleSubmission = async () => {
     if (!validateForm()) return;
     setSubmitButtonDisabled(true);
-    if (isEdit) 
-    await updateProjectInDatabase({...values, refUser : props.uid},  defaults.pid);
+    if (isEdit)
+      await updateProjectInDatabase({ ...values, refUser: props.uid }, defaults.pid);
     else await addProjectInDatabase({ ...values, refUser: props.uid });
     setSubmitButtonDisabled(false);
     if (props.onSubmission) props.onSubmission;

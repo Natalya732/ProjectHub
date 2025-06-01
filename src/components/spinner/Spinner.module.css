@@ -4,7 +4,7 @@
     height: 50px;
     border-radius: 50%;
     border: 5px solid #ddd;
-    border-top-color: #22c48b;
+    border-top-color: #1e40af;
     animation: loading 1s linear infinite;
   }
   @keyframes loading {

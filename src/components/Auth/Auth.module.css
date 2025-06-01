@@ -2,7 +2,7 @@
     min-height: 100vh;
     height: 100%;
     width: 100%;
-    background: linear-gradient(to right bottom, #22c48b, #54f0b9);
+    background: linear-gradient(to right bottom, #1e40af, #54f0b9);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -45,7 +45,7 @@
     border: none;
     outline: none;
     padding: 8px 16px;
-    background-color: #22c48b;
+    background-color: #1e40af;
     color: #fff;
     border-radius: 5px;
     width: 100%;
@@ -87,7 +87,7 @@
   }
   
   .bottom p a {
-    color: #22c48b;
+    color: #1e40af;
     font-weight: 600;
     text-decoration: underline;
     cursor: pointer;
